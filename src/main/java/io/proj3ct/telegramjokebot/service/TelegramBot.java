@@ -1,7 +1,10 @@
 package io.proj3ct.telegramjokebot.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.type.TypeFactory;
 import com.vdurmont.emoji.EmojiParser;
 import io.proj3ct.telegramjokebot.config.BotConfig;
+import io.proj3ct.telegramjokebot.model.Joke;
 import io.proj3ct.telegramjokebot.model.JokeRepository;
 import io.proj3ct.telegramjokebot.model.User;
 import io.proj3ct.telegramjokebot.model.UserRepository;
@@ -20,6 +23,7 @@ import org.telegram.telegrambots.meta.api.objects.replykeyboard.InlineKeyboardMa
 import org.telegram.telegrambots.meta.api.objects.replykeyboard.buttons.InlineKeyboardButton;
 import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 
+import java.io.File;
 import java.security.SecureRandom;
 import java.sql.*;
 import java.util.ArrayList;
@@ -76,8 +80,19 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
 
-            case "/start" -> showStart(chatId, update.getMessage().getChat().getFirstName());
-
+            case "/start" -> {
+                showStart(chatId, update.getMessage().getChat().getFirstName());
+                try {
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    TypeFactory typeFactory = objectMapper.getTypeFactory();
+                    List<Joke> jokeList = objectMapper.readValue(new File("db/stupidstuff.json"),
+                            typeFactory.constructCollectionType(List.class, Joke.class));
+                    jokeRepository.saveAll(jokeList);
+                }
+                catch (Exception e){
+                    log.error(Arrays.toString(e.getStackTrace()));
+                }
+            }
             default -> commandNotFound(chatId);
 
             }
