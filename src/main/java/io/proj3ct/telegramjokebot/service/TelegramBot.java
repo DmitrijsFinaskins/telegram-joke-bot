@@ -29,6 +29,7 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Random;
 
 @Component
 @Slf4j
@@ -48,6 +49,8 @@ public class TelegramBot extends TelegramLongPollingBot {
     @Autowired
     private JokeRepository jokeRepository;
 
+    static final int MAX_JOKE_ID_MINUS_ONE = 3772;
+
     public TelegramBot(BotConfig config) {
         this.config = config;
         List<BotCommand> listOfCommands = new ArrayList<>();
@@ -62,15 +65,18 @@ public class TelegramBot extends TelegramLongPollingBot {
         }
     }
 
-    @Override public String getBotUsername() {
+    @Override
+    public String getBotUsername() {
         return config.getBotUserName();
     }
 
-    @Override public String getBotToken() {
+    @Override
+    public String getBotToken() {
         return config.getToken();
     }
 
-    @Override public void onUpdateReceived(Update update) {
+    @Override
+    public void onUpdateReceived(Update update) {
 
         // We check if the update has a message and the message has text
         if (update.hasMessage() && update.getMessage().hasText()) {
@@ -80,26 +86,36 @@ public class TelegramBot extends TelegramLongPollingBot {
 
             switch (messageText) {
 
-            case "/start" -> {
-                showStart(chatId, update.getMessage().getChat().getFirstName());
-                try {
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    TypeFactory typeFactory = objectMapper.getTypeFactory();
-                    List<Joke> jokeList = objectMapper.readValue(new File("db/stupidstuff.json"),
-                            typeFactory.constructCollectionType(List.class, Joke.class));
-                    jokeRepository.saveAll(jokeList);
+                case "/start" -> {
+                    showStart(chatId, update.getMessage().getChat().getFirstName());
+                    try {
+                        ObjectMapper objectMapper = new ObjectMapper();
+                        TypeFactory typeFactory = objectMapper.getTypeFactory();
+                        List<Joke> jokeList = objectMapper.readValue(new File("db/stupidstuff.json"),
+                                typeFactory.constructCollectionType(List.class, Joke.class));
+                        jokeRepository.saveAll(jokeList);
+                    } catch (Exception e) {
+                        log.error(Arrays.toString(e.getStackTrace()));
+                    }
                 }
-                catch (Exception e){
-                    log.error(Arrays.toString(e.getStackTrace()));
+
+                case "/joke" -> {
+
+                    var r = new Random();
+                    var randomId = r.nextInt(MAX_JOKE_ID_MINUS_ONE) + 1;
+
+                    var joke = jokeRepository.findById(randomId);
+
+                    joke.ifPresent(randomJoke -> sendMessage(randomJoke.getBody(), chatId));
+
+
                 }
-            }
-            default -> commandNotFound(chatId);
+                default -> commandNotFound(chatId);
 
             }
 
         }
     }
-
 
 
     private void showStart(long chatId, String name) {
