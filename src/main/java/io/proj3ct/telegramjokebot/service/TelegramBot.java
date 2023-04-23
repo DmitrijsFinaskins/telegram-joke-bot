@@ -26,10 +26,7 @@ import org.telegram.telegrambots.meta.exceptions.TelegramApiException;
 import java.io.File;
 import java.security.SecureRandom;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 @Component
 @Slf4j
@@ -50,6 +47,7 @@ public class TelegramBot extends TelegramLongPollingBot {
     private JokeRepository jokeRepository;
 
     static final int MAX_JOKE_ID_MINUS_ONE = 3772;
+    static final String NEXT_JOKE = "NEXT_JOKE";
 
     public TelegramBot(BotConfig config) {
         this.config = config;
@@ -101,12 +99,9 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 case "/joke" -> {
 
-                    var r = new Random();
-                    var randomId = r.nextInt(MAX_JOKE_ID_MINUS_ONE) + 1;
+                    var joke = getRandomJoke();
 
-                    var joke = jokeRepository.findById(randomId);
-
-                    joke.ifPresent(randomJoke -> sendMessage(randomJoke.getBody(), chatId));
+                    joke.ifPresent(randomJoke -> addButtonAndSendMessage(randomJoke.getBody(), chatId));
 
 
                 }
@@ -115,6 +110,49 @@ public class TelegramBot extends TelegramLongPollingBot {
             }
 
         }
+
+        else if(update.hasCallbackQuery()){
+
+            String callbackData = update.getCallbackQuery().getData();
+            long chatId = update.getCallbackQuery().getMessage().getChatId();
+
+            if(callbackData.equals(NEXT_JOKE)) {
+
+                var joke = getRandomJoke();
+
+                joke.ifPresent(randomJoke -> addButtonAndSendMessage(randomJoke.getBody(), chatId));
+
+
+            }
+
+        }
+    }
+
+    private Optional<Joke> getRandomJoke(){
+        var r = new Random();
+        var randomId = r.nextInt(MAX_JOKE_ID_MINUS_ONE) + 1;
+
+        return jokeRepository.findById(randomId);
+    }
+
+    private void addButtonAndSendMessage(String joke, long chatId){
+
+        SendMessage message = new SendMessage();
+        message.setText(joke);
+        message.setChatId(chatId);
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<InlineKeyboardButton> rowInline = new ArrayList<>();
+        var inlinekeyboardButton = new InlineKeyboardButton();
+        inlinekeyboardButton.setCallbackData(NEXT_JOKE);
+        inlinekeyboardButton.setText(EmojiParser.parseToUnicode("next joke " + ":rolling_on_the_floor_laughing:"));
+        rowInline.add(inlinekeyboardButton);
+        rowsInline.add(rowInline);
+        markupInline.setKeyboard(rowsInline);
+        message.setReplyMarkup(markupInline);
+        send(message);
+
     }
 
 
@@ -136,8 +174,12 @@ public class TelegramBot extends TelegramLongPollingBot {
         SendMessage message = new SendMessage(); // Create a message object object
         message.setChatId(String.valueOf(chatId));
         message.setText(textToSend);
+        send(message);
+    }
+
+    private void send(SendMessage msg) {
         try {
-            execute(message); // Sending our message object to user
+            execute(msg); // Sending our message object to user
         } catch (TelegramApiException e) {
             log.error(Arrays.toString(e.getStackTrace()));
         }
