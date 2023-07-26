@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 import org.telegram.telegrambots.bots.TelegramLongPollingBot;
 import org.telegram.telegrambots.meta.api.methods.commands.*;
 import org.telegram.telegrambots.meta.api.methods.send.SendMessage;
+import org.telegram.telegrambots.meta.api.methods.updatingmessages.EditMessageText;
 import org.telegram.telegrambots.meta.api.objects.*;
 import org.telegram.telegrambots.meta.api.objects.commands.*;
 import org.telegram.telegrambots.meta.api.objects.commands.scope.*;
@@ -120,8 +121,9 @@ public class TelegramBot extends TelegramLongPollingBot {
 
                 var joke = getRandomJoke();
 
-                joke.ifPresent(randomJoke -> addButtonAndSendMessage(randomJoke.getBody(), chatId));
+                //joke.ifPresent(randomJoke -> addButtonAndSendMessage(randomJoke.getBody(), chatId));
 
+                joke.ifPresent(randomJoke -> addButtonAndEditText(randomJoke.getBody(), chatId, update.getCallbackQuery().getMessage().getMessageId()));
 
             }
 
@@ -155,6 +157,27 @@ public class TelegramBot extends TelegramLongPollingBot {
 
     }
 
+    private void addButtonAndEditText(String joke, long chatId, Integer messageId){
+
+        EditMessageText message = new EditMessageText();
+        message.setChatId(chatId);
+        message.setText(joke);
+        message.setMessageId(messageId);
+
+        InlineKeyboardMarkup markupInline = new InlineKeyboardMarkup();
+        List<List<InlineKeyboardButton>> rowsInline = new ArrayList<>();
+        List<InlineKeyboardButton> rowInline = new ArrayList<>();
+        var inlinekeyboardButton = new InlineKeyboardButton();
+        inlinekeyboardButton.setCallbackData(NEXT_JOKE);
+        inlinekeyboardButton.setText(EmojiParser.parseToUnicode("next joke " + ":rolling_on_the_floor_laughing:"));
+        rowInline.add(inlinekeyboardButton);
+        rowsInline.add(rowInline);
+        markupInline.setKeyboard(rowsInline);
+        message.setReplyMarkup(markupInline);
+
+        sendEditMessageText(message);
+    }
+
 
     private void showStart(long chatId, String name) {
         String answer = EmojiParser.parseToUnicode(
@@ -178,6 +201,14 @@ public class TelegramBot extends TelegramLongPollingBot {
     }
 
     private void send(SendMessage msg) {
+        try {
+            execute(msg); // Sending our message object to user
+        } catch (TelegramApiException e) {
+            log.error(Arrays.toString(e.getStackTrace()));
+        }
+    }
+
+    private void sendEditMessageText(EditMessageText msg) {
         try {
             execute(msg); // Sending our message object to user
         } catch (TelegramApiException e) {
